@@ -1,25 +1,46 @@
 import * as admin from 'firebase-admin';
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 import { sendWelcomeEmail } from './emailService.js';
 
-if (!admin.apps.length) {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
-      }),
-    });
-    console.log("Firebase Admin inicializado com sucesso.");
-  } catch (error) {
-    console.error("Erro crítico na inicialização do Firebase Admin:", error);
-  }
-}
+// LAZY INITIALIZATION: Só conecta quando for chamado
+const getAdminConfig = () => {
+  if (admin.apps.length === 0) {
+    try {
+      // Blindagem rigorosa para a Private Key da Vercel
+      let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
+      
+      // Remove aspas extras que a Vercel às vezes adiciona
+      if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+        privateKey = privateKey.slice(1, -1);
+      }
+      
+      // Trata quebras de linha literais
+      privateKey = privateKey.replace(/\\n/g, '\n');
 
-const dbAdmin = admin.firestore();
-const authAdmin = admin.auth();
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: privateKey,
+        }),
+      });
+      console.log('Firebase Admin inicializado com sucesso (Lazy).');
+    } catch (error) {
+      console.error('Falha crítica ao inicializar Firebase Admin:', error);
+      throw error;
+    }
+  }
+  
+  const app = admin.apps[0];
+  return { 
+    dbAdmin: getFirestore(app), 
+    authAdmin: getAuth(app) 
+  };
+};
 
 export const provisionTictoPurchase = async (customerData: any, tictoProductId: string) => {
+  const { dbAdmin, authAdmin } = getAdminConfig();
   try {
     const safeProductId = String(tictoProductId);
     console.log(`Iniciando provisionamento para: ${customerData.email}`);
@@ -90,14 +111,14 @@ export const provisionTictoPurchase = async (customerData: any, tictoProductId: 
         email: customerData.email,
         phone: customerData.phone || '',
         role: 'student',
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         access: [
           {
             productId: productDoc.id,
             tictoId: safeProductId,
             productName: productData.name,
-            grantedAt: admin.firestore.FieldValue.serverTimestamp(),
-            expiresAt: admin.firestore.Timestamp.fromDate(expirationDate),
+            grantedAt: FieldValue.serverTimestamp(),
+            expiresAt: Timestamp.fromDate(expirationDate),
             resources: linkedResources
           }
         ]
@@ -121,14 +142,14 @@ export const provisionTictoPurchase = async (customerData: any, tictoProductId: 
           email: customerData.email,
           phone: customerData.phone || userRecord.phoneNumber || '',
           role: 'student',
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
           access: [
             {
               productId: productDoc.id,
               tictoId: safeProductId,
               productName: productData.name,
-              grantedAt: admin.firestore.FieldValue.serverTimestamp(),
-              expiresAt: admin.firestore.Timestamp.fromDate(expirationDate),
+              grantedAt: FieldValue.serverTimestamp(),
+              expiresAt: Timestamp.fromDate(expirationDate),
               resources: linkedResources
             }
           ]
@@ -151,13 +172,13 @@ export const provisionTictoPurchase = async (customerData: any, tictoProductId: 
             productId: productDoc.id,
             tictoId: safeProductId,
             productName: productData.name,
-            grantedAt: admin.firestore.FieldValue.serverTimestamp(),
-            expiresAt: admin.firestore.Timestamp.fromDate(expirationDate),
+            grantedAt: FieldValue.serverTimestamp(),
+            expiresAt: Timestamp.fromDate(expirationDate),
             resources: linkedResources
           };
 
           await userRef.update({
-            access: admin.firestore.FieldValue.arrayUnion(newAccess)
+            access: FieldValue.arrayUnion(newAccess)
           });
           console.log(`[PROVISIONAMENTO] Novos acessos adicionados para o usuário existente ${customerData.email}`);
         } else {
@@ -176,6 +197,7 @@ export const provisionTictoPurchase = async (customerData: any, tictoProductId: 
 };
 
 export const revokeTictoPurchase = async (email: string, tictoProductId: string) => {
+  const { dbAdmin, authAdmin } = getAdminConfig();
   try {
     const safeProductId = String(tictoProductId);
     // 1. Busca o documento do produto na coleção ticto_products para saber quais recursos ele liberava
@@ -216,7 +238,7 @@ export const revokeTictoPurchase = async (email: string, tictoProductId: string)
     const updatedAccess = currentAccess.map((acc: any) => {
       if (acc.tictoId === safeProductId && acc.isActive !== false) {
         hasChanges = true;
-        return { ...acc, isActive: false, revokedAt: admin.firestore.FieldValue.serverTimestamp() };
+        return { ...acc, isActive: false, revokedAt: FieldValue.serverTimestamp() };
       }
       return acc;
     });
