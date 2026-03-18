@@ -92,7 +92,6 @@ export const provisionTictoPurchase = async (customerData: any, tictoProductId: 
         email: customerData.email,
         password: generatedPassword,
         displayName: customerData.name,
-        phoneNumber: customerData.phone || undefined, // Opcional
       });
 
       // Criar documento na coleção users
