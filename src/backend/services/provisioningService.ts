@@ -106,7 +106,7 @@ export const provisionTictoPurchase = async (customerData: any, tictoProductId: 
             productId: productDoc.id,
             tictoId: safeProductId,
             productName: productData.name,
-            grantedAt: FieldValue.serverTimestamp(),
+            grantedAt: new Date(),
             expiresAt: Timestamp.fromDate(expirationDate),
             resources: linkedResources
           }
@@ -137,7 +137,7 @@ export const provisionTictoPurchase = async (customerData: any, tictoProductId: 
               productId: productDoc.id,
               tictoId: safeProductId,
               productName: productData.name,
-              grantedAt: FieldValue.serverTimestamp(),
+              grantedAt: new Date(),
               expiresAt: Timestamp.fromDate(expirationDate),
               resources: linkedResources
             }
@@ -161,7 +161,7 @@ export const provisionTictoPurchase = async (customerData: any, tictoProductId: 
             productId: productDoc.id,
             tictoId: safeProductId,
             productName: productData.name,
-            grantedAt: FieldValue.serverTimestamp(),
+            grantedAt: new Date(),
             expiresAt: Timestamp.fromDate(expirationDate),
             resources: linkedResources
           };
@@ -227,7 +227,7 @@ export const revokeTictoPurchase = async (email: string, tictoProductId: string)
     const updatedAccess = currentAccess.map((acc: any) => {
       if (acc.tictoId === safeProductId && acc.isActive !== false) {
         hasChanges = true;
-        return { ...acc, isActive: false, revokedAt: FieldValue.serverTimestamp() };
+        return { ...acc, isActive: false, revokedAt: new Date() };
       }
       return acc;
     });
