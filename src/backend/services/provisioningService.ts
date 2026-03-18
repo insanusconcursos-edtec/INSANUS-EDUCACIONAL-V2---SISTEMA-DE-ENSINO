@@ -1,42 +1,32 @@
-import * as admin from 'firebase-admin';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { sendWelcomeEmail } from './emailService.js';
 
-// LAZY INITIALIZATION: Só conecta quando for chamado
+// LAZY INITIALIZATION MODULAR
 const getAdminConfig = () => {
-  if (admin.apps.length === 0) {
+  if (getApps().length === 0) {
     try {
-      // Blindagem rigorosa para a Private Key da Vercel
       let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
-      
-      // Remove aspas extras que a Vercel às vezes adiciona
       if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
         privateKey = privateKey.slice(1, -1);
       }
-      
-      // Trata quebras de linha literais
       privateKey = privateKey.replace(/\\n/g, '\n');
 
-      admin.initializeApp({
-        credential: admin.credential.cert({
+      initializeApp({
+        credential: cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
           privateKey: privateKey,
         }),
       });
-      console.log('Firebase Admin inicializado com sucesso (Lazy).');
+      console.log('Firebase Admin inicializado com sucesso (Lazy Modular).');
     } catch (error) {
       console.error('Falha crítica ao inicializar Firebase Admin:', error);
       throw error;
     }
   }
-  
-  const app = admin.apps[0];
-  return { 
-    dbAdmin: getFirestore(app), 
-    authAdmin: getAuth(app) 
-  };
+  return { dbAdmin: getFirestore(), authAdmin: getAuth() };
 };
 
 export const provisionTictoPurchase = async (customerData: any, tictoProductId: string) => {
