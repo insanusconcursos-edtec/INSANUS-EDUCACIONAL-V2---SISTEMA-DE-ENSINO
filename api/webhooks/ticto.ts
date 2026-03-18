@@ -28,11 +28,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { status, customer, item } = payload;
 
-    // 5. Execução
-    if (status === 'approved' || status === 'paid') {
+    // Log inicial de rastreio para requisições válidas
+    console.log(`Webhook Ticto Recebido - Status: ${status} | Email: ${customer?.email} | Produto ID: ${item?.product_id}`);
+
+    // 5. Execução (Incluindo 'authorized' para cartões aprovados)
+    if (status === 'approved' || status === 'paid' || status === 'authorized') {
       await provisionTictoPurchase(customer, String(item.product_id));
     } else if (['refunded', 'chargeback', 'canceled', 'overdue'].includes(status)) {
       await revokeTictoPurchase(customer?.email, String(item.product_id));
+    } else {
+      console.log(`Status '${status}' ignorado. Nenhuma ação de provisionamento necessária.`);
     }
 
     // 6. Resposta limpa
